@@ -17,7 +17,9 @@ snippet de tracking    --POST->   tracker central controlpanel -->  dashboard de
 - **Editar o catálogo = editar a planilha** (aba `Produtos`). O site lê via API com
   cache de 5 minutos. Colunas: `id, nome, categoria, descricao, preco, preco_texto,
   imagem, destaque, disponivel, prazo_dias, ordem`.
-  - `preco 0` + `preco_texto "sob consulta"` para itens orçados por conversa.
+  - **O site não exibe preços** (nem a API pública devolve). As colunas `preco` e
+    `preco_texto` são internas: alimentam o total calculado na aba `Pedidos` e o
+    e-mail de aviso. Valores são combinados na conversa com o cliente.
   - `imagem` aceita URL completa (Drive público, ou arquivo em `img/` deste repo
     referenciado como `https://d3dinovacao.github.io/img/arquivo.jpg`).
   - `disponivel FALSE` esconde o item sem apagar a linha.

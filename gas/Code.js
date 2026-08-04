@@ -126,7 +126,7 @@ function doPost(e) {
 /** Gatilho simples: qualquer edição na planilha invalida o cache do catálogo. */
 function onEdit(e) {
   try {
-    CacheService.getScriptCache().remove('products_json');
+    CacheService.getScriptCache().remove('products_json_v2');
   } catch (err) { /* cache indisponível não pode quebrar a edição */ }
 }
 
@@ -162,19 +162,20 @@ function readProducts_() {
 
 function productsJson_() {
   var cache = CacheService.getScriptCache();
-  var cached = cache.get('products_json');
+  var cached = cache.get('products_json_v2');
   if (cached) {
     return ContentService.createTextOutput(cached)
       .setMimeType(ContentService.MimeType.JSON);
   }
 
+  // Preços ficam FORA da resposta pública: o site não exibe valores.
+  // A coluna preco da planilha segue alimentando o total interno dos pedidos.
   var out = {
     products: readProducts_().filter(function (p) { return p.disponivel; })
       .map(function (p) {
         return {
           id: p.id, nome: p.nome, categoria: p.categoria, descricao: p.descricao,
-          preco: p.preco, precoTexto: p.precoTexto, imagem: p.imagem,
-          destaque: p.destaque, prazoDias: p.prazoDias, ordem: p.ordem
+          imagem: p.imagem, destaque: p.destaque, prazoDias: p.prazoDias, ordem: p.ordem
         };
       })
       .sort(function (a, b) { return a.ordem - b.ordem; }),
@@ -182,7 +183,7 @@ function productsJson_() {
   };
 
   var text = JSON.stringify(out);
-  cache.put('products_json', text, CACHE_SECONDS);
+  cache.put('products_json_v2', text, CACHE_SECONDS);
   return ContentService.createTextOutput(text)
     .setMimeType(ContentService.MimeType.JSON);
 }
@@ -320,7 +321,7 @@ function setup_(force) {
     seeded = true;
   }
 
-  CacheService.getScriptCache().remove('products_json');
+  CacheService.getScriptCache().remove('products_json_v2');
   var result = { success: true, seeded: seeded, produtos: SEED_PRODUCTS.length };
   Logger.log(JSON.stringify(result));
   return result;

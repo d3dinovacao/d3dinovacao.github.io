@@ -29,7 +29,6 @@
     drawer: document.getElementById('drawer-carrinho'),
     drawerFundo: document.getElementById('drawer-fundo'),
     drawerItens: document.getElementById('drawer-itens'),
-    drawerTotal: document.getElementById('drawer-total'),
     modalFundo: document.getElementById('modal-fundo'),
     modalConteudo: document.getElementById('modal-conteudo'),
     checkoutFundo: document.getElementById('checkout-fundo'),
@@ -77,16 +76,6 @@
     sincronizarOverlay();
     var alvo = container.querySelector('.btn-fechar') || container;
     try { alvo.focus(); } catch (e) { /* sem foco disponível */ }
-  }
-
-  function brl(n) {
-    return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  }
-
-  function precoTexto(p) {
-    if (p.precoTexto) return p.precoTexto;
-    if (p.preco > 0) return brl(p.preco);
-    return 'sob consulta';
   }
 
   function gradiente(categoria) {
@@ -192,7 +181,6 @@
           (p.destaque ? '<span class="card-badge">Destaque</span>' : '') +
           '<button class="card-nome" data-id="' + esc(p.id) + '">' + esc(p.nome) + '</button>' +
           '<p class="card-desc">' + esc(p.descricao) + '</p>' +
-          '<p class="card-preco">' + esc(precoTexto(p)) + '</p>' +
           (p.prazoDias ? '<p class="card-prazo">Prazo: até ' + (Number(p.prazoDias) || 0) + ' dias úteis</p>' : '') +
           '<div class="card-acoes">' +
             '<button class="btn btn-primario" data-add="' + esc(p.id) + '">Adicionar</button>' +
@@ -221,7 +209,6 @@
       '<p class="modal-categoria">' + esc(p.categoria) + '</p>' +
       '<h2 id="modal-titulo">' + esc(p.nome) + '</h2>' +
       '<p class="modal-desc">' + esc(p.descricao) + '</p>' +
-      '<p class="modal-preco">' + esc(precoTexto(p)) + '</p>' +
       (p.prazoDias ? '<p class="modal-prazo">Produção em até ' + (Number(p.prazoDias) || 0) + ' dias úteis após a confirmação.</p>' : '') +
       '<button class="btn btn-primario btn-cheio" data-modal-add="' + esc(p.id) + '">Adicionar ao carrinho</button>';
     el.modalFundo.hidden = false;
@@ -268,7 +255,7 @@
     var itens = lerCarrinho();
     var existente = itens.filter(function (i) { return i.id === id; })[0];
     if (existente) existente.qtd += 1;
-    else itens.push({ id: p.id, nome: p.nome, preco: p.preco, precoTexto: p.precoTexto, qtd: 1 });
+    else itens.push({ id: p.id, nome: p.nome, qtd: 1 });
     salvarCarrinho(itens);
     toast(p.nome + ' no carrinho');
     renderCarrinho();
@@ -289,15 +276,10 @@
     renderCarrinho();
   }
 
-  function totalCarrinho(itens) {
-    return itens.reduce(function (s, i) { return s + (i.preco > 0 ? i.preco * i.qtd : 0); }, 0);
-  }
-
   function renderCarrinho() {
     var itens = lerCarrinho();
     if (!itens.length) {
       el.drawerItens.innerHTML = '<p class="drawer-vazio">Seu carrinho está vazio.</p>';
-      el.drawerTotal.textContent = brl(0);
       return;
     }
     var html = '';
@@ -305,7 +287,6 @@
       html += '<div class="item-carrinho">' +
         '<div class="item-info">' +
           '<p class="item-nome">' + esc(i.nome) + '</p>' +
-          '<p class="item-preco">' + (i.preco > 0 ? esc(brl(i.preco)) : esc(i.precoTexto || 'sob consulta')) + '</p>' +
           '<button class="item-remover" data-rm="' + esc(i.id) + '">remover</button>' +
         '</div>' +
         '<div class="item-qtd">' +
@@ -315,7 +296,6 @@
         '</div></div>';
     });
     el.drawerItens.innerHTML = html;
-    el.drawerTotal.textContent = brl(totalCarrinho(itens));
 
     el.drawerItens.querySelectorAll('[data-mais]').forEach(function (b) {
       b.addEventListener('click', function () { mudarQtd(b.getAttribute('data-mais'), 1); });
@@ -364,10 +344,9 @@
     var linhas = ['Olá! Fiz um pedido pelo site da D3D.', ''];
     if (pedidoId) linhas.push('Pedido: ' + pedidoId);
     itens.forEach(function (i) {
-      linhas.push('- ' + i.qtd + 'x ' + i.nome + ' (' + (i.preco > 0 ? brl(i.preco) : 'sob consulta') + ')');
+      linhas.push('- ' + i.qtd + 'x ' + i.nome);
     });
-    var total = totalCarrinho(itens);
-    if (total > 0) linhas.push('', 'Total estimado: ' + brl(total));
+    linhas.push('', 'Aguardo o orçamento.');
     return linhas.join('\n');
   }
 
@@ -383,7 +362,7 @@
       contato: form.contato.value.trim(),
       observacoes: form.observacoes.value.trim(),
       origem: location.origin,
-      itens: itens.map(function (i) { return { id: i.id, nome: i.nome, preco: i.preco, qtd: i.qtd }; })
+      itens: itens.map(function (i) { return { id: i.id, nome: i.nome, qtd: i.qtd }; })
     };
 
     enviandoPedido = true;
