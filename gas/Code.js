@@ -4,20 +4,25 @@
  * Planilha como banco de dados, três abas:
  *   Produtos - catálogo (editar aqui é o "admin" do site)
  *   Pedidos  - pedidos enviados pelo site
- *   Visitas  - tracking LGPD (18 campos anônimos, mesmo formato do controlpanel)
+ *   Visitas  - tracking LGPD (fallback; o site usa o tracker central)
  *
  * Endpoints (web app, acesso anônimo):
  *   GET  ?action=products      -> JSON do catálogo (só itens disponíveis)
  *   GET  ?action=ping          -> healthcheck
- *   GET  ?action=setup&key=... -> cria abas e semeia produtos (guardado por chave)
  *   POST {action:'order', ...} -> grava pedido + e-mail de aviso
  *   POST {page, timestamp,...} -> grava visita (payload do snippet de tracking)
+ *
+ * Setup/seed NÃO é exposto na web: rodar setupFromEditor() no editor do Apps
+ * Script quando precisar recriar abas ou re-semear o catálogo.
+ *
+ * CORS: clientes DEVEM postar como text/plain (simple request). GAS não
+ * responde preflight OPTIONS, então Content-Type application/json quebra.
  */
 
 var SPREADSHEET_ID = '1TuFhB-su6XFJTP5EXNwFKucQ8zVFR7UZt5wXM0LYh3E';
-var SETUP_KEY = 'd3d-setup-7f2k9';
 var NOTIFY_EMAIL = 'd3dinovacao@gmail.com';
 var CACHE_SECONDS = 300;
+var MAX_VISIT_ROWS = 20000;
 
 var PRODUCT_HEADERS = [
   'id', 'nome', 'categoria', 'descricao', 'preco', 'preco_texto',
@@ -88,23 +93,21 @@ function doGet(e) {
     if (action === 'ping') {
       return json_({ ok: true, service: 'd3d-catalogo', time: new Date().toISOString() });
     }
-    if (action === 'setup') {
-      if (!e.parameter.key || e.parameter.key !== SETUP_KEY) {
-        return json_({ error: 'unauthorized' });
-      }
-      return json_(setup_(e.parameter.force === '1'));
-    }
     if (action === 'products') {
       return productsJson_();
     }
     return json_({ error: 'unknown action' });
   } catch (err) {
-    return json_({ error: String(err) });
+    console.error('doGet: ' + err);
+    return json_({ error: 'internal' });
   }
 }
 
 function doPost(e) {
   try {
+    if (!e || !e.postData || !e.postData.contents || e.postData.contents.length > 10000) {
+      return json_({ error: 'invalid payload' });
+    }
     var data = JSON.parse(e.postData.contents);
     if (data && data.action === 'order') {
       return json_(recordOrder_(data));
@@ -115,11 +118,47 @@ function doPost(e) {
     }
     return json_({ error: 'invalid payload' });
   } catch (err) {
-    return json_({ error: String(err) });
+    console.error('doPost: ' + err);
+    return json_({ error: 'internal' });
   }
 }
 
+/** Gatilho simples: qualquer edição na planilha invalida o cache do catálogo. */
+function onEdit(e) {
+  try {
+    CacheService.getScriptCache().remove('products_json');
+  } catch (err) { /* cache indisponível não pode quebrar a edição */ }
+}
+
 // ------------------------------------------------------------------- produtos
+
+function readProducts_() {
+  // Colunas fixas por posição (PRODUCT_HEADERS); renomear o cabeçalho na
+  // planilha não muda o mapeamento, inserir coluna no meio sim (não fazer).
+  var sheet = getSheet_('Produtos');
+  var products = [];
+  if (sheet.getLastRow() < 2) return products;
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, PRODUCT_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var row = {};
+    for (var c = 0; c < PRODUCT_HEADERS.length; c++) row[PRODUCT_HEADERS[c]] = values[i][c];
+    if (!row.id) continue;
+    products.push({
+      id: String(row.id),
+      nome: String(row.nome),
+      categoria: String(row.categoria),
+      descricao: String(row.descricao),
+      preco: Number(row.preco) || 0,
+      precoTexto: String(row.preco_texto || ''),
+      imagem: String(row.imagem || ''),
+      destaque: row.destaque === true || String(row.destaque).toUpperCase() === 'TRUE',
+      disponivel: !(row.disponivel === false || String(row.disponivel).toUpperCase() === 'FALSE'),
+      prazoDias: Number(row.prazo_dias) || 0,
+      ordem: Number(row.ordem) || 999
+    });
+  }
+  return products;
+}
 
 function productsJson_() {
   var cache = CacheService.getScriptCache();
@@ -129,30 +168,18 @@ function productsJson_() {
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  var sheet = getSheet_('Produtos');
-  var out = { products: [], updated: new Date().toISOString() };
-  if (sheet.getLastRow() > 1) {
-    var values = sheet.getRange(1, 1, sheet.getLastRow(), PRODUCT_HEADERS.length).getValues();
-    var headers = values[0].map(String);
-    for (var i = 1; i < values.length; i++) {
-      var row = {};
-      for (var c = 0; c < headers.length; c++) row[headers[c]] = values[i][c];
-      if (!row.id || String(row.disponivel).toUpperCase() === 'FALSE' || row.disponivel === false) continue;
-      out.products.push({
-        id: String(row.id),
-        nome: String(row.nome),
-        categoria: String(row.categoria),
-        descricao: String(row.descricao),
-        preco: Number(row.preco) || 0,
-        precoTexto: String(row.preco_texto || ''),
-        imagem: String(row.imagem || ''),
-        destaque: row.destaque === true || String(row.destaque).toUpperCase() === 'TRUE',
-        prazoDias: Number(row.prazo_dias) || 0,
-        ordem: Number(row.ordem) || 999
-      });
-    }
-    out.products.sort(function (a, b) { return a.ordem - b.ordem; });
-  }
+  var out = {
+    products: readProducts_().filter(function (p) { return p.disponivel; })
+      .map(function (p) {
+        return {
+          id: p.id, nome: p.nome, categoria: p.categoria, descricao: p.descricao,
+          preco: p.preco, precoTexto: p.precoTexto, imagem: p.imagem,
+          destaque: p.destaque, prazoDias: p.prazoDias, ordem: p.ordem
+        };
+      })
+      .sort(function (a, b) { return a.ordem - b.ordem; }),
+    updated: new Date().toISOString()
+  };
 
   var text = JSON.stringify(out);
   cache.put('products_json', text, CACHE_SECONDS);
@@ -175,11 +202,17 @@ function recordOrder_(data) {
     return { error: 'carrinho vazio' };
   }
 
+  // Preço e nome vêm do catálogo (nunca do cliente); item desconhecido
+  // entra como "sob consulta" para não registrar total forjado.
+  var catalogo = {};
+  readProducts_().forEach(function (p) { catalogo[p.id] = p; });
+
   for (var i = 0; i < Math.min(data.itens.length, 50); i++) {
-    var it = data.itens[i];
+    var it = data.itens[i] || {};
     var qtd = Math.max(1, Math.min(999, parseInt(it.qtd, 10) || 1));
-    var nomeItem = clean_(it.nome, 120);
-    var preco = Number(it.preco) || 0;
+    var ref = catalogo[String(it.id || '')];
+    var nomeItem = ref ? ref.nome : clean_(it.nome, 120) + ' [fora do catálogo]';
+    var preco = ref ? ref.preco : 0;
     var sub = preco * qtd;
     total += sub;
     itens.push(qtd + 'x ' + nomeItem + (preco > 0
@@ -191,13 +224,20 @@ function recordOrder_(data) {
     Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyyMMdd') + '-' +
     Utilities.getUuid().slice(0, 4).toUpperCase();
 
+  var sheet = getSheet_('Pedidos');
+  var rowIndex;
   var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
   try {
-    getSheet_('Pedidos').appendRow([
+    lock.waitLock(10000);
+  } catch (lockErr) {
+    return { error: 'sistema ocupado, tente de novo em instantes' };
+  }
+  try {
+    sheet.appendRow([
       new Date(), pedidoId, nome, contato, itens.join('\n'),
       total, observacoes, origem, 'novo'
     ]);
+    rowIndex = sheet.getLastRow();
   } finally {
     lock.releaseLock();
   }
@@ -215,7 +255,11 @@ function recordOrder_(data) {
       '\nPlanilha: https://docs.google.com/spreadsheets/d/' + SPREADSHEET_ID
     );
   } catch (mailErr) {
-    // Sem quota de e-mail não pode derrubar o pedido
+    // Quota estourada: marca na linha para o pedido não passar despercebido
+    try {
+      sheet.getRange(rowIndex, ORDER_HEADERS.indexOf('status') + 1)
+        .setValue('novo, email falhou');
+    } catch (markErr) { console.error('marca email falhou: ' + markErr); }
   }
 
   return { success: true, pedidoId: pedidoId, total: total };
@@ -224,23 +268,33 @@ function recordOrder_(data) {
 // -------------------------------------------------------------------- visitas
 
 function recordVisit_(data) {
+  var sheet = getSheet_('Visitas');
+  if (sheet.getLastRow() >= MAX_VISIT_ROWS) {
+    return { success: true, capped: true };
+  }
   var row = VISIT_HEADERS.map(function (h) {
     var v = data[h];
     if (v === undefined || v === null) return '';
     return clean_(String(v), 500);
   });
-
-  var lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    getSheet_('Visitas').appendRow(row);
-  } finally {
-    lock.releaseLock();
-  }
+  sheet.appendRow(row);
   return { success: true };
 }
 
 // ---------------------------------------------------------------------- setup
+
+/**
+ * Rodar MANUALMENTE no editor do Apps Script (não exposto na web).
+ * Cria as abas e semeia o catálogo se a aba Produtos estiver vazia.
+ * Para forçar re-seed (apaga edições!), rodar setupForceReseed().
+ */
+function setupFromEditor() {
+  return setup_(false);
+}
+
+function setupForceReseed() {
+  return setup_(true);
+}
 
 function setup_(force) {
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -267,7 +321,9 @@ function setup_(force) {
   }
 
   CacheService.getScriptCache().remove('products_json');
-  return { success: true, seeded: seeded, produtos: SEED_PRODUCTS.length };
+  var result = { success: true, seeded: seeded, produtos: SEED_PRODUCTS.length };
+  Logger.log(JSON.stringify(result));
+  return result;
 }
 
 // -------------------------------------------------------------------- helpers
@@ -300,7 +356,10 @@ function json_(obj) {
 
 function clean_(value, maxLen) {
   if (value === undefined || value === null) return '';
-  return String(value).replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, maxLen);
+  var str = String(value).replace(/[\u0000-\u001F\u007F]/g, ' ').trim().slice(0, maxLen);
+  // Neutraliza formula injection: célula que começa com = + - @ vira texto
+  if (/^[=+\-@]/.test(str)) str = "'" + str;
+  return str;
 }
 
 function brl_(n) {

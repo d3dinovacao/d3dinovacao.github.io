@@ -48,6 +48,37 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  function semAcento(s) {
+    return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+
+  var ultimoFoco = null;
+  var enviandoPedido = false;
+
+  function overlayAberto() {
+    return !el.drawer.hidden || !el.modalFundo.hidden || !el.checkoutFundo.hidden;
+  }
+
+  function sincronizarOverlay() {
+    var aberto = overlayAberto();
+    document.body.classList.toggle('sem-scroll', aberto);
+    ['.topo', 'main', '.rodape'].forEach(function (sel) {
+      var n = document.querySelector(sel);
+      if (n) { if (aberto) n.setAttribute('inert', ''); else n.removeAttribute('inert'); }
+    });
+    if (!aberto && ultimoFoco) {
+      try { ultimoFoco.focus(); } catch (e) { /* elemento sumiu */ }
+      ultimoFoco = null;
+    }
+  }
+
+  function focarDialogo(container) {
+    ultimoFoco = ultimoFoco || document.activeElement;
+    sincronizarOverlay();
+    var alvo = container.querySelector('.btn-fechar') || container;
+    try { alvo.focus(); } catch (e) { /* sem foco disponível */ }
+  }
+
   function brl(n) {
     return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   }
@@ -127,7 +158,7 @@
     return produtos.filter(function (p) {
       if (categoriaAtiva !== 'todos' && p.categoria !== categoriaAtiva) return false;
       if (termoBusca) {
-        var alvo = (p.nome + ' ' + p.descricao + ' ' + p.categoria).toLowerCase();
+        var alvo = semAcento(p.nome + ' ' + p.descricao + ' ' + p.categoria);
         if (alvo.indexOf(termoBusca) === -1) return false;
       }
       return true;
@@ -143,6 +174,11 @@
 
   function render() {
     var lista = filtrados();
+    var status = document.getElementById('resultado-busca');
+    if (status) {
+      status.textContent = lista.length === 1 ? '1 produto encontrado'
+        : lista.length + ' produtos encontrados';
+    }
     if (!lista.length) {
       el.grade.innerHTML = '<p class="estado">Nenhum produto encontrado.</p>';
       return;
@@ -157,7 +193,7 @@
           '<button class="card-nome" data-id="' + esc(p.id) + '">' + esc(p.nome) + '</button>' +
           '<p class="card-desc">' + esc(p.descricao) + '</p>' +
           '<p class="card-preco">' + esc(precoTexto(p)) + '</p>' +
-          (p.prazoDias ? '<p class="card-prazo">Prazo: até ' + p.prazoDias + ' dias úteis</p>' : '') +
+          (p.prazoDias ? '<p class="card-prazo">Prazo: até ' + (Number(p.prazoDias) || 0) + ' dias úteis</p>' : '') +
           '<div class="card-acoes">' +
             '<button class="btn btn-primario" data-add="' + esc(p.id) + '">Adicionar</button>' +
           '</div>' +
@@ -186,16 +222,17 @@
       '<h2 id="modal-titulo">' + esc(p.nome) + '</h2>' +
       '<p class="modal-desc">' + esc(p.descricao) + '</p>' +
       '<p class="modal-preco">' + esc(precoTexto(p)) + '</p>' +
-      (p.prazoDias ? '<p class="modal-prazo">Produção em até ' + p.prazoDias + ' dias úteis após a confirmação.</p>' : '') +
+      (p.prazoDias ? '<p class="modal-prazo">Produção em até ' + (Number(p.prazoDias) || 0) + ' dias úteis após a confirmação.</p>' : '') +
       '<button class="btn btn-primario btn-cheio" data-modal-add="' + esc(p.id) + '">Adicionar ao carrinho</button>';
     el.modalFundo.hidden = false;
+    focarDialogo(el.modalFundo);
     el.modalConteudo.querySelector('[data-modal-add]').addEventListener('click', function () {
       addCarrinho(p.id);
       fecharModal();
     });
   }
 
-  function fecharModal() { el.modalFundo.hidden = true; }
+  function fecharModal() { el.modalFundo.hidden = true; sincronizarOverlay(); }
 
   // -------------------------------------------------------------- carrinho
 
@@ -203,7 +240,13 @@
     try {
       var raw = localStorage.getItem(CART_KEY);
       var itens = raw ? JSON.parse(raw) : [];
-      return Array.isArray(itens) ? itens : [];
+      if (!Array.isArray(itens)) return [];
+      return itens.filter(function (i) {
+        return i && typeof i.id === 'string' && isFinite(Number(i.qtd)) && Number(i.qtd) > 0;
+      }).map(function (i) {
+        i.qtd = Math.min(999, Math.floor(Number(i.qtd)));
+        return i;
+      });
     } catch (e) { return []; }
   }
 
@@ -289,11 +332,13 @@
     renderCarrinho();
     el.drawer.hidden = false;
     el.drawerFundo.hidden = false;
+    focarDialogo(el.drawer);
   }
 
   function fecharCarrinho() {
     el.drawer.hidden = true;
     el.drawerFundo.hidden = true;
+    sincronizarOverlay();
   }
 
   // -------------------------------------------------------------- checkout
@@ -306,9 +351,14 @@
     el.checkoutSucesso.hidden = true;
     el.checkoutErro.hidden = true;
     el.checkoutFundo.hidden = false;
+    focarDialogo(el.checkoutFundo);
   }
 
-  function fecharCheckout() { el.checkoutFundo.hidden = true; }
+  function fecharCheckout() {
+    if (enviandoPedido) return;
+    el.checkoutFundo.hidden = true;
+    sincronizarOverlay();
+  }
 
   function mensagemPedido(itens, pedidoId) {
     var linhas = ['Olá! Fiz um pedido pelo site da D3D.', ''];
@@ -333,9 +383,10 @@
       contato: form.contato.value.trim(),
       observacoes: form.observacoes.value.trim(),
       origem: location.origin,
-      itens: itens.map(function (i) { return { nome: i.nome, preco: i.preco, qtd: i.qtd }; })
+      itens: itens.map(function (i) { return { id: i.id, nome: i.nome, preco: i.preco, qtd: i.qtd }; })
     };
 
+    enviandoPedido = true;
     el.btnEnviar.disabled = true;
     el.btnEnviar.textContent = 'Enviando...';
     el.checkoutErro.hidden = true;
@@ -359,6 +410,7 @@
         el.checkoutErro.hidden = false;
       })
       .then(function () {
+        enviandoPedido = false;
         el.btnEnviar.disabled = false;
         el.btnEnviar.textContent = 'Enviar pedido';
       });
@@ -386,6 +438,9 @@
         linkHtml +
       '</div>';
     el.checkoutSucesso.hidden = false;
+    // Garante que a confirmação fica visível mesmo se o modal foi fechado no meio
+    el.checkoutFundo.hidden = false;
+    sincronizarOverlay();
 
     salvarCarrinho([]);
     renderCarrinho();
@@ -423,7 +478,7 @@
   el.formCheckout.addEventListener('submit', enviarPedido);
 
   el.busca.addEventListener('input', function () {
-    termoBusca = el.busca.value.trim().toLowerCase();
+    termoBusca = semAcento(el.busca.value.trim());
     render();
   });
 

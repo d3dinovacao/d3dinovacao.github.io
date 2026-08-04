@@ -48,7 +48,8 @@ clasp update-deployment <deploymentId>         # redeploy mantendo a MESMA URL
 
 Primeiro deploy em uma conta nova: rodar a função `authorize` no editor
 (script.google.com) uma vez para autorizar os escopos de planilha e e-mail, depois
-chamar `?action=setup&key=<SETUP_KEY>` para criar as abas e semear o catálogo.
+rodar `setupFromEditor()` no editor para criar as abas e semear o catálogo
+(`setupForceReseed()` apaga edições e re-semeia; nenhum dos dois é exposto na web).
 
 - Planilha: https://docs.google.com/spreadsheets/d/1TuFhB-su6XFJTP5EXNwFKucQ8zVFR7UZt5wXM0LYh3E
 - Projeto Apps Script: https://script.google.com/d/1KeqBVDpcJNlIS8aUSPYYZKI_KCIY3V2IrKVj7lZ3lP6Oj8SKhQYRX7-g/edit
