@@ -25,9 +25,11 @@
     .gal-cats{font-size:.72rem;color:#6b6257;display:flex;flex-wrap:wrap;gap:.3rem}
     .gal-cats span{background:#f1ece3;border-radius:999px;padding:.08rem .5rem}
     .gal-cta{margin-top:auto;font-size:.8rem}
-    .gal-cta a{color:#a4552c;text-decoration:none;font-weight:600}
-    .gal-cta a:hover{text-decoration:underline}
+    .gal-add{background:none;border:none;padding:0;font:inherit;font-size:.8rem;color:#a4552c;font-weight:600;cursor:pointer}
+    .gal-add:hover{text-decoration:underline}
+    .gal-add.no-carrinho{color:#0e6b4a}
     .btn-mais{margin:1.8rem auto 0;display:block}
+    .item-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;background:#111}
   </style>
 </head>
 <body>
@@ -46,6 +48,11 @@
         <a href="index.html#como-funciona">Como funciona</a>
         <a href="index.html#contato">Contato</a>
       </nav>
+      <button class="btn-carrinho" id="btn-carrinho" aria-label="Abrir carrinho">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="20" r="1.6"/><circle cx="17" cy="20" r="1.6"/><path d="M3 4h2l2.4 12h10.2l1.9-8H6.2"/></svg>
+        <span>Carrinho</span>
+        <span class="carrinho-badge" id="carrinho-badge" hidden>0</span>
+      </button>
     </div>
     <div class="barra-gradiente" aria-hidden="true"></div>
   </header>
@@ -54,7 +61,7 @@
     <section class="catalogo">
       <div class="secao-inner">
         <h2>Catálogo</h2>
-        <p class="secao-sub">Milhares de peças que podemos imprimir para você, incluindo brindes corporativos com a logo da sua empresa. Encontrou uma que gostou? Anote o código (ex.: SF-1234) e peça um orçamento pelo WhatsApp.</p>
+        <p class="secao-sub">Milhares de peças que podemos imprimir para você, incluindo brindes corporativos com a logo da sua empresa. Adicione ao carrinho as peças que gostar e envie o pedido pelo WhatsApp; a gente responde com o orçamento.</p>
 
         <div class="gal-barra">
           <label class="visually-hidden" for="gal-busca">Buscar por código</label>
@@ -69,6 +76,22 @@
       </div>
     </section>
   </main>
+
+  <!-- Carrinho -->
+  <div class="drawer-fundo" id="drawer-fundo" hidden></div>
+  <aside class="drawer" id="drawer-carrinho" aria-label="Carrinho" hidden>
+    <div class="drawer-topo">
+      <h2>Seu carrinho</h2>
+      <button class="btn-fechar" id="btn-fechar-carrinho" aria-label="Fechar carrinho">&times;</button>
+    </div>
+    <div class="drawer-itens" id="drawer-itens"></div>
+    <div class="drawer-rodape">
+      <p class="drawer-obs">Ao enviar, abrimos o WhatsApp com a lista dos códigos. Valores e prazo são confirmados na conversa, sem compromisso.</p>
+      <button class="btn btn-primario btn-cheio" id="btn-enviar-whatsapp" disabled>Enviar pedido pelo WhatsApp</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" hidden></div>
 
   <footer class="rodape">
     <div class="barra-gradiente" aria-hidden="true"></div>
@@ -96,6 +119,12 @@
         grade=document.getElementById('gal-grade'), mais=document.getElementById('gal-mais'),
         cont=document.getElementById('gal-contagem'), sortear=document.getElementById('gal-sortear');
     var WA=(window.D3D_CONFIG||{}).WHATSAPP||'';
+
+    var BYCODE={};
+    TODOS.forEach(function(m){BYCODE[m.c]=m});
+    var carrinho={};
+    try{carrinho=JSON.parse(localStorage.getItem('d3d_carrinho')||'{}')||{}}catch(e){carrinho={}}
+    Object.keys(carrinho).forEach(function(c){if(!BYCODE[c])delete carrinho[c]});
 
     var cats={};
     TODOS.forEach(function(m){(m.k||[]).forEach(function(c){cats[c]=(cats[c]||0)+1})});
@@ -129,13 +158,12 @@
 
     function card(m){
       var d=document.createElement('div'); d.className='gal-card';
-      var msg=encodeURIComponent('Olá! Vi a galeria da D3D e quero um orçamento do projeto '+m.c+'.');
-      var cta=WA?'<a href="https://wa.me/'+WA+'?text='+msg+'" target="_blank" rel="noopener">Pedir orçamento &rarr;</a>'
-                :'<a href="mailto:d3dinovacao@gmail.com?subject='+encodeURIComponent('Orçamento '+m.c)+'">Pedir orçamento &rarr;</a>';
+      var noCarrinho=!!carrinho[m.c];
       d.innerHTML='<div class="gal-thumb"><img loading="lazy" src="'+thumbUrl(m)+'" alt="Projeto '+m.c+'">'+
         '<span class="gal-cod">'+m.c+'</span></div>'+
         '<div class="gal-info"><div class="gal-cats">'+(m.k||[]).map(function(x){return '<span>'+x+'</span>'}).join('')+'</div>'+
-        '<div class="gal-cta">'+cta+'</div></div>';
+        '<div class="gal-cta"><button type="button" class="gal-add'+(noCarrinho?' no-carrinho':'')+'" data-c="'+m.c+'">'+
+        (noCarrinho?'No carrinho &check; adicionar outro':'Adicionar ao carrinho +')+'</button></div></div>';
       return d;
     }
 
@@ -145,11 +173,98 @@
       grade.appendChild(frag); n=fim; mais.hidden=n>=vis.length;
     }
 
+    // ------------------------------------------------------------ carrinho
+    var btnCarrinho=document.getElementById('btn-carrinho'),
+        badge=document.getElementById('carrinho-badge'),
+        fundo=document.getElementById('drawer-fundo'),
+        drawer=document.getElementById('drawer-carrinho'),
+        itens=document.getElementById('drawer-itens'),
+        btnFechar=document.getElementById('btn-fechar-carrinho'),
+        btnEnviar=document.getElementById('btn-enviar-whatsapp'),
+        toast=document.getElementById('toast');
+    var toastT;
+
+    function salvar(){
+      try{localStorage.setItem('d3d_carrinho',JSON.stringify(carrinho))}catch(e){}
+    }
+    function totalItens(){
+      return Object.keys(carrinho).reduce(function(s,c){return s+carrinho[c]},0);
+    }
+    function avisar(msg){
+      toast.textContent=msg; toast.hidden=false;
+      clearTimeout(toastT); toastT=setTimeout(function(){toast.hidden=true},2200);
+    }
+    function atualizarBadge(){
+      var n=totalItens();
+      badge.textContent=n; badge.hidden=n===0;
+      btnEnviar.disabled=n===0;
+    }
+    function atualizarBotoesCards(){
+      grade.querySelectorAll('.gal-add').forEach(function(b){
+        var no=!!carrinho[b.dataset.c];
+        b.classList.toggle('no-carrinho',no);
+        b.innerHTML=no?'No carrinho &check; adicionar outro':'Adicionar ao carrinho +';
+      });
+    }
+    function desenharCarrinho(){
+      var codes=Object.keys(carrinho).sort();
+      if(!codes.length){
+        itens.innerHTML='<p class="drawer-vazio">Seu carrinho está vazio. Adicione peças pelo catálogo.</p>';
+        return;
+      }
+      itens.innerHTML=codes.map(function(c){
+        var m=BYCODE[c];
+        return '<div class="item-carrinho" data-c="'+c+'">'+
+          '<img class="item-thumb" loading="lazy" src="'+thumbUrl(m)+'" alt="'+c+'">'+
+          '<div class="item-info"><div class="item-nome">'+c+'</div>'+
+          '<div class="item-preco">'+((m.k||[])[0]||'')+'</div>'+
+          '<button class="item-remover" data-acao="remover">remover</button></div>'+
+          '<div class="item-qtd"><button data-acao="menos" aria-label="Diminuir">&minus;</button>'+
+          '<span>'+carrinho[c]+'</span>'+
+          '<button data-acao="mais" aria-label="Aumentar">+</button></div></div>';
+      }).join('');
+    }
+    function sincronizar(){
+      salvar(); atualizarBadge(); desenharCarrinho(); atualizarBotoesCards();
+    }
+    function abrirCarrinho(){ fundo.hidden=false; drawer.hidden=false; desenharCarrinho(); }
+    function fecharCarrinho(){ fundo.hidden=true; drawer.hidden=true; }
+
+    grade.addEventListener('click',function(e){
+      var b=e.target.closest('.gal-add'); if(!b) return;
+      var c=b.dataset.c;
+      carrinho[c]=(carrinho[c]||0)+1;
+      sincronizar();
+      avisar(c+' adicionado ao carrinho ('+carrinho[c]+'x)');
+    });
+    itens.addEventListener('click',function(e){
+      var b=e.target.closest('button'); if(!b) return;
+      var c=b.closest('.item-carrinho').dataset.c;
+      if(b.dataset.acao==='mais') carrinho[c]++;
+      else if(b.dataset.acao==='menos'){ carrinho[c]--; if(carrinho[c]<1) delete carrinho[c]; }
+      else if(b.dataset.acao==='remover') delete carrinho[c];
+      sincronizar();
+    });
+    btnEnviar.addEventListener('click',function(){
+      var codes=Object.keys(carrinho).sort(); if(!codes.length) return;
+      var linhas=codes.map(function(c){return '- '+c+(carrinho[c]>1?' ('+carrinho[c]+'x)':'')});
+      var msg='Olá! Montei um carrinho no catálogo da D3D:\n'+linhas.join('\n')+
+              '\nPode me passar um orçamento?';
+      if(WA) window.open('https://wa.me/'+WA+'?text='+encodeURIComponent(msg),'_blank','noopener');
+      else location.href='mailto:d3dinovacao@gmail.com?subject='+encodeURIComponent('Pedido catálogo D3D')+
+                         '&body='+encodeURIComponent(msg);
+    });
+    btnCarrinho.addEventListener('click',abrirCarrinho);
+    btnFechar.addEventListener('click',fecharCarrinho);
+    fundo.addEventListener('click',fecharCarrinho);
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')fecharCarrinho()});
+
     var t; busca.addEventListener('input',function(){clearTimeout(t);t=setTimeout(function(){aplicar(false)},200)});
     cat.addEventListener('change',function(){aplicar(false)});
     sortear.addEventListener('click',function(){aplicar(true)});
     mais.addEventListener('click',lote);
     aplicar(true);
+    atualizarBadge();
   })();
   </script>
 
