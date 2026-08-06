@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo | D3D Inovação</title>
+  <meta name="description" content="Catálogo da D3D Inovação: milhares de peças que podemos imprimir sob demanda, incluindo brindes corporativos com a logo da sua empresa. Escolha, anote o código e peça um orçamento.">
+  <link rel="icon" href="img/logo.jpeg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .gal-barra{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-top:1.2rem}
+    .gal-barra select,.gal-barra input[type=search]{padding:.55rem .8rem;border:1px solid rgba(0,0,0,.15);border-radius:10px;font:inherit;background:#fff}
+    .gal-barra input[type=search]{flex:1;min-width:220px}
+    .gal-contagem{font-size:.85rem;color:#6b6257;margin-top:.8rem}
+    .gal-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:1rem;margin-top:1.2rem}
+    .gal-card{background:#fff;border-radius:13px;overflow:hidden;border:1px solid rgba(0,0,0,.08);display:flex;flex-direction:column;transition:transform .15s ease}
+    .gal-card:hover{transform:translateY(-3px)}
+    .gal-thumb{position:relative;aspect-ratio:1/1;background:#111}
+    .gal-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .gal-cod{position:absolute;left:.5rem;top:.5rem;background:rgba(28,28,28,.85);color:#fff;font-size:.72rem;font-weight:600;padding:.15rem .55rem;border-radius:999px;letter-spacing:.03em}
+    .gal-info{padding:.6rem .75rem .75rem;display:flex;flex-direction:column;gap:.35rem;flex:1}
+    .gal-cats{font-size:.72rem;color:#6b6257;display:flex;flex-wrap:wrap;gap:.3rem}
+    .gal-cats span{background:#f1ece3;border-radius:999px;padding:.08rem .5rem}
+    .gal-cta{margin-top:auto;font-size:.8rem}
+    .gal-cta a{color:#a4552c;text-decoration:none;font-weight:600}
+    .gal-cta a:hover{text-decoration:underline}
+    .btn-mais{margin:1.8rem auto 0;display:block}
+  </style>
+</head>
+<body>
+
+  <header class="topo">
+    <div class="topo-inner">
+      <a class="marca" href="index.html" aria-label="D3D Inovação, início">
+        <img src="img/logo.jpeg" alt="Logo da D3D Inovação" class="marca-logo">
+        <span class="marca-texto">
+          <span class="marca-nome">D3D Inovação</span>
+          <span class="marca-tagline">IMPRESSÃO 3D &bull; SOLUÇÕES &bull; INOVAÇÃO</span>
+        </span>
+      </a>
+      <nav class="menu" aria-label="Navegação principal">
+        <a href="catalogo.html" aria-current="page">Catálogo</a>
+        <a href="index.html#como-funciona">Como funciona</a>
+        <a href="index.html#contato">Contato</a>
+      </nav>
+    </div>
+    <div class="barra-gradiente" aria-hidden="true"></div>
+  </header>
+
+  <main>
+    <section class="catalogo">
+      <div class="secao-inner">
+        <h2>Catálogo</h2>
+        <p class="secao-sub">Milhares de peças que podemos imprimir para você, incluindo brindes corporativos com a logo da sua empresa. Encontrou uma que gostou? Anote o código (ex.: SF-1234) e peça um orçamento pelo WhatsApp.</p>
+
+        <div class="gal-barra">
+          <label class="visually-hidden" for="gal-busca">Buscar por código</label>
+          <input type="search" id="gal-busca" placeholder="Buscar por código (ex.: SF-1234)...">
+          <select id="gal-cat" aria-label="Filtrar por categoria"></select>
+          <button class="btn btn-secundario" id="gal-sortear" type="button">Me surpreenda</button>
+        </div>
+        <p class="gal-contagem" id="gal-contagem"></p>
+
+        <div class="gal-grade" id="gal-grade"></div>
+        <button class="btn btn-primario btn-mais" id="gal-mais" hidden>Ver mais ideias</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="barra-gradiente" aria-hidden="true"></div>
+    <div class="secao-inner rodape-grid">
+      <div>
+        <p class="rodape-marca">D3D Inovação</p>
+        <p class="rodape-tagline">IMPRESSÃO 3D &bull; SOLUÇÕES &bull; INOVAÇÃO</p>
+      </div>
+      <ul class="rodape-contatos">
+        <li><a href="https://www.instagram.com/d3dinovacao" target="_blank" rel="noopener">Instagram</a></li>
+        <li><a href="mailto:d3dinovacao@gmail.com">d3dinovacao@gmail.com</a></li>
+      </ul>
+      <p class="rodape-nota">Imagens ilustrativas de bibliotecas de modelos licenciadas. Peças impressas sob demanda; cores e acabamento combinados no orçamento.</p>
+    </div>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/galeria-dados.js"></script>
+  <script>
+  (function(){
+    var SF_CDN='https://stlflix.b-cdn.net/';
+    var MW_CDN='https://makerworld.bblmw.com/makerworld/model/';
+    var TODOS=window.GALERIA||[], LOTE=60, vis=[], n=0;
+    var busca=document.getElementById('gal-busca'), cat=document.getElementById('gal-cat'),
+        grade=document.getElementById('gal-grade'), mais=document.getElementById('gal-mais'),
+        cont=document.getElementById('gal-contagem'), sortear=document.getElementById('gal-sortear');
+    var WA=(window.D3D_CONFIG||{}).WHATSAPP||'';
+
+    var cats={};
+    TODOS.forEach(function(m){(m.k||[]).forEach(function(c){cats[c]=(cats[c]||0)+1})});
+    cat.innerHTML='<option value="">Todas as categorias ('+TODOS.length+')</option>'+
+      Object.keys(cats).sort().map(function(c){return '<option value="'+c+'">'+c+' ('+cats[c]+')</option>'}).join('');
+
+    function thumbUrl(m){
+      if(m.f==='br') return 'img/brindes/'+m.t;
+      return m.f==='sf'
+        ? SF_CDN+encodeURIComponent(m.t)+'?width=400&format=webp'
+        : MW_CDN+m.t+'?x-oss-process=image%2Fresize%2Cw_400%2Fformat%2Cwebp';
+    }
+
+    function embaralhar(a){
+      for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var x=a[i];a[i]=a[j];a[j]=x}
+      return a;
+    }
+
+    function aplicar(shuffle){
+      var s=busca.value.trim().toLowerCase(), c=cat.value;
+      vis=TODOS.filter(function(m){
+        if(c && (m.k||[]).indexOf(c)<0) return false;
+        if(!s) return true;
+        return m.c.toLowerCase().indexOf(s)>=0;
+      });
+      if(shuffle) embaralhar(vis);
+      n=0; grade.innerHTML='';
+      cont.textContent=vis.length+' ideias';
+      lote();
+    }
+
+    function card(m){
+      var d=document.createElement('div'); d.className='gal-card';
+      var msg=encodeURIComponent('Olá! Vi a galeria da D3D e quero um orçamento do projeto '+m.c+'.');
+      var cta=WA?'<a href="https://wa.me/'+WA+'?text='+msg+'" target="_blank" rel="noopener">Pedir orçamento &rarr;</a>'
+                :'<a href="mailto:d3dinovacao@gmail.com?subject='+encodeURIComponent('Orçamento '+m.c)+'">Pedir orçamento &rarr;</a>';
+      d.innerHTML='<div class="gal-thumb"><img loading="lazy" src="'+thumbUrl(m)+'" alt="Projeto '+m.c+'">'+
+        '<span class="gal-cod">'+m.c+'</span></div>'+
+        '<div class="gal-info"><div class="gal-cats">'+(m.k||[]).map(function(x){return '<span>'+x+'</span>'}).join('')+'</div>'+
+        '<div class="gal-cta">'+cta+'</div></div>';
+      return d;
+    }
+
+    function lote(){
+      var fim=Math.min(n+LOTE,vis.length), frag=document.createDocumentFragment();
+      for(var i=n;i<fim;i++) frag.appendChild(card(vis[i]));
+      grade.appendChild(frag); n=fim; mais.hidden=n>=vis.length;
+    }
+
+    var t; busca.addEventListener('input',function(){clearTimeout(t);t=setTimeout(function(){aplicar(false)},200)});
+    cat.addEventListener('change',function(){aplicar(false)});
+    sortear.addEventListener('click',function(){aplicar(true)});
+    mais.addEventListener('click',lote);
+    aplicar(true);
+  })();
+  </script>
+
+  <!-- Tracking de visitas (LGPD: campos anônimos, sem cookies e sem dados pessoais) -->
+  <script>
+  (function(){var T=(window.D3D_CONFIG||{}).TRACKING_URL;if(!T)return;function d(){var u=navigator.userAgent.toLowerCase();if(/tablet|ipad|playbook|silk/i.test(u))return'tablet';if(/mobile|iphone|ipod|android|blackberry|opera mini|iemobile/i.test(u))return'mobile';return'desktop'}function g(p){try{return new URLSearchParams(location.search).get(p)||''}catch(e){return''}}var o={timestamp:new Date().toISOString(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'',timezoneOffset:new Date().getTimezoneOffset(),page:location.href,pathname:location.pathname,referrer:document.referrer||'direct',pageTitle:document.title,language:navigator.language||'',deviceType:d(),screenOrientation:screen.orientation?screen.orientation.type.split('-')[0]:'',connectionType:navigator.connection?navigator.connection.effectiveType:'',loadTime:0,utmSource:g('utm_source'),utmMedium:g('utm_medium'),utmCampaign:g('utm_campaign'),utmTerm:g('utm_term'),utmContent:g('utm_content'),prefersColorScheme:matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light',origin:location.origin};function s(){setTimeout(function(){o.loadTime=Math.round(performance.now());fetch(T,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(o)}).catch(function(){})},100)}if(document.readyState==='complete')s();else addEventListener('load',s)})();
+  </script>
+</body>
+</html>

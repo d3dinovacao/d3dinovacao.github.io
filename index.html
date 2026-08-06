@@ -28,17 +28,11 @@
         </span>
       </a>
       <nav class="menu" aria-label="Navegação principal">
-        <a href="#catalogo">Catálogo</a>
-        <a href="galeria.html">Galeria de ideias</a>
+        <a href="catalogo.html">Catálogo</a>
         <a href="#como-funciona">Como funciona</a>
         <a href="#sobre">Sobre</a>
         <a href="#contato">Contato</a>
       </nav>
-      <button class="btn-carrinho" id="btn-carrinho" aria-label="Abrir carrinho">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="20" r="1.6"/><circle cx="17" cy="20" r="1.6"/><path d="M3 4h2l2.4 12h10.2l1.9-8H6.2"/></svg>
-        <span>Carrinho</span>
-        <span class="carrinho-badge" id="carrinho-badge" hidden>0</span>
-      </button>
     </div>
     <div class="barra-gradiente" aria-hidden="true"></div>
   </header>
@@ -50,28 +44,8 @@
         <h1>Criando o que você imagina</h1>
         <p class="hero-sub">Peças personalizadas, maquetes de relevo e soluções sob medida em impressão 3D. Cada projeto desenvolvido com cuidado, precisão e atenção aos detalhes.</p>
         <div class="hero-acoes">
-          <a class="btn btn-primario" href="#catalogo">Ver catálogo</a>
+          <a class="btn btn-primario" href="catalogo.html">Ver catálogo</a>
           <a class="btn btn-secundario" href="#contato">Falar com a gente</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="catalogo" id="catalogo">
-      <div class="secao-inner">
-        <h2>Catálogo</h2>
-        <p class="secao-sub">Escolha um produto pronto ou peça uma versão personalizada. Tudo impresso sob demanda.</p>
-
-        <div class="filtros" role="group" aria-label="Filtrar por categoria">
-          <div class="filtros-chips" id="filtros-chips"></div>
-          <label class="busca">
-            <span class="visually-hidden">Buscar produto</span>
-            <input type="search" id="busca-input" placeholder="Buscar produto...">
-          </label>
-        </div>
-
-        <p id="resultado-busca" class="visually-hidden" aria-live="polite"></p>
-        <div class="grade" id="grade-produtos">
-          <p class="estado" id="estado-catalogo">Carregando o catálogo...</p>
         </div>
       </div>
     </section>
@@ -82,7 +56,7 @@
         <ol class="passos">
           <li>
             <h3>1. Você pede</h3>
-            <p>Monte o carrinho no site ou descreva a peça que imagina. Itens personalizados começam com uma conversa rápida.</p>
+            <p>Escolha uma peça no catálogo e mande o código pelo WhatsApp, ou descreva a peça que imagina. Itens personalizados começam com uma conversa rápida.</p>
           </li>
           <li>
             <h3>2. A gente produz</h3>
@@ -125,55 +99,7 @@
     </div>
   </footer>
 
-  <!-- Carrinho -->
-  <div class="drawer-fundo" id="drawer-fundo" hidden></div>
-  <aside class="drawer" id="drawer-carrinho" aria-label="Carrinho de compras" hidden>
-    <div class="drawer-topo">
-      <h2>Seu carrinho</h2>
-      <button class="btn-fechar" id="btn-fechar-carrinho" aria-label="Fechar carrinho">&times;</button>
-    </div>
-    <div class="drawer-itens" id="drawer-itens"></div>
-    <div class="drawer-rodape">
-      <p class="drawer-obs">Valores e prazo são confirmados na conversa, sem compromisso.</p>
-      <button class="btn btn-primario btn-cheio" id="btn-finalizar">Enviar pedido</button>
-    </div>
-  </aside>
-
-  <!-- Modal de produto -->
-  <div class="modal-fundo" id="modal-fundo" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
-      <button class="btn-fechar" id="btn-fechar-modal" aria-label="Fechar">&times;</button>
-      <div id="modal-conteudo"></div>
-    </div>
-  </div>
-
-  <!-- Modal de checkout -->
-  <div class="modal-fundo" id="checkout-fundo" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="checkout-titulo">
-      <button class="btn-fechar" id="btn-fechar-checkout" aria-label="Fechar">&times;</button>
-      <h2 id="checkout-titulo">Enviar pedido</h2>
-      <p class="checkout-sub">Preencha seus dados. A gente confirma valores, prazo e pagamento com você antes de produzir.</p>
-      <form id="form-checkout">
-        <label>Seu nome
-          <input type="text" name="nome" required maxlength="120" autocomplete="name">
-        </label>
-        <label>WhatsApp ou e-mail para contato
-          <input type="text" name="contato" required maxlength="120" autocomplete="tel">
-        </label>
-        <label>Observações (opcional)
-          <textarea name="observacoes" rows="3" maxlength="500" placeholder="Cores, tema, referência, data que precisa..."></textarea>
-        </label>
-        <button class="btn btn-primario btn-cheio" type="submit" id="btn-enviar-pedido">Enviar pedido</button>
-        <p class="checkout-erro" id="checkout-erro" hidden></p>
-      </form>
-      <div id="checkout-sucesso" hidden></div>
-    </div>
-  </div>
-
-  <div class="toast" id="toast" role="status" hidden></div>
-
   <script src="js/config.js"></script>
-  <script src="js/app.js"></script>
 
   <!-- Tracking de visitas (LGPD: 18 campos anônimos, sem cookies e sem dados pessoais) -->
   <script>
