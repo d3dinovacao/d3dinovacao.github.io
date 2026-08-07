@@ -31,6 +31,13 @@
     .gal-add.no-carrinho{color:#0e6b4a}
     .btn-mais{margin:1.8rem auto 0;display:block}
     .item-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;background:#111}
+    .drawer-form{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.8rem}
+    .drawer-form label{font-size:.78rem;font-weight:600;color:#4a4239}
+    .drawer-form label+input{margin-bottom:.5rem}
+    .drawer-form input{padding:.55rem .75rem;border:1px solid rgba(0,0,0,.18);border-radius:9px;font:inherit;background:#fff}
+    .drawer-form input:focus{outline:2px solid #a4552c;outline-offset:1px}
+    .drawer-form input.invalido{border-color:#b3261e}
+    .drawer-erro{font-size:.78rem;color:#b3261e;margin:0}
   </style>
 </head>
 <body>
@@ -87,7 +94,14 @@
     </div>
     <div class="drawer-itens" id="drawer-itens"></div>
     <div class="drawer-rodape">
-      <p class="drawer-obs">Ao enviar, abrimos o WhatsApp com a lista dos códigos. Valores e prazo são confirmados na conversa, sem compromisso.</p>
+      <div class="drawer-form">
+        <label for="cli-nome">Nome completo</label>
+        <input type="text" id="cli-nome" autocomplete="name" placeholder="Como podemos te chamar" required>
+        <label for="cli-email">E-mail</label>
+        <input type="email" id="cli-email" autocomplete="email" placeholder="voce@exemplo.com" required>
+        <p class="drawer-erro" id="cli-erro" hidden></p>
+      </div>
+      <p class="drawer-obs">Ao enviar, abrimos o WhatsApp com seus dados e a lista dos códigos. Usamos nome e e-mail só para responder este orçamento. Valores e prazo são confirmados na conversa, sem compromisso.</p>
       <button class="btn btn-primario btn-cheio" id="btn-enviar-whatsapp" disabled>Enviar pedido pelo WhatsApp</button>
     </div>
   </aside>
@@ -201,8 +215,40 @@
         itens=document.getElementById('drawer-itens'),
         btnFechar=document.getElementById('btn-fechar-carrinho'),
         btnEnviar=document.getElementById('btn-enviar-whatsapp'),
-        toast=document.getElementById('toast');
+        toast=document.getElementById('toast'),
+        cliNome=document.getElementById('cli-nome'),
+        cliEmail=document.getElementById('cli-email'),
+        cliErro=document.getElementById('cli-erro');
     var toastT;
+
+    // Nome e e-mail ficam so no navegador do cliente (localStorage) e na
+    // mensagem que ele mesmo envia pelo WhatsApp; nada e mandado para servidor.
+    try{
+      var salvo=JSON.parse(localStorage.getItem('d3d_cliente')||'{}')||{};
+      cliNome.value=salvo.nome||''; cliEmail.value=salvo.email||'';
+    }catch(e){}
+
+    function nomeOk(){
+      var v=cliNome.value.trim();
+      return v.length>=5 && v.indexOf(' ')>0;   // nome e sobrenome
+    }
+    function emailOk(){
+      return /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(cliEmail.value.trim());
+    }
+    function validarCliente(mostrarErro){
+      var faltas=[];
+      if(!nomeOk()) faltas.push('nome completo');
+      if(!emailOk()) faltas.push('e-mail válido');
+      cliNome.classList.toggle('invalido',mostrarErro&&!nomeOk());
+      cliEmail.classList.toggle('invalido',mostrarErro&&!emailOk());
+      if(mostrarErro&&faltas.length){
+        cliErro.textContent='Preencha '+faltas.join(' e ')+' para enviar o pedido.';
+        cliErro.hidden=false;
+      }else{
+        cliErro.hidden=true;
+      }
+      return !faltas.length;
+    }
 
     function salvar(){
       try{localStorage.setItem('d3d_carrinho',JSON.stringify(carrinho))}catch(e){}
@@ -217,7 +263,7 @@
     function atualizarBadge(){
       var n=totalItens();
       badge.textContent=n; badge.hidden=n===0;
-      btnEnviar.disabled=n===0;
+      btnEnviar.disabled=n===0||!validarCliente(false);
     }
     function atualizarBotoesCards(){
       grade.querySelectorAll('.gal-add').forEach(function(b){
@@ -265,14 +311,21 @@
       else if(b.dataset.acao==='remover') delete carrinho[c];
       sincronizar();
     });
+    cliNome.addEventListener('input',function(){validarCliente(false);atualizarBadge()});
+    cliEmail.addEventListener('input',function(){validarCliente(false);atualizarBadge()});
+
     btnEnviar.addEventListener('click',function(){
       var codes=Object.keys(carrinho).sort(); if(!codes.length) return;
+      if(!validarCliente(true)){ (nomeOk()?cliEmail:cliNome).focus(); return; }
+      var nome=cliNome.value.trim(), email=cliEmail.value.trim();
+      try{localStorage.setItem('d3d_cliente',JSON.stringify({nome:nome,email:email}))}catch(e){}
       var linhas=codes.map(function(c){
         var m=BYCODE[c]||{};
         return '- '+c+(m.n?' '+m.n:'')+(carrinho[c]>1?' ('+carrinho[c]+'x)':'');
       });
-      var msg='Olá! Montei um carrinho no catálogo da D3D:\n'+linhas.join('\n')+
-              '\nPode me passar um orçamento?';
+      var msg='Olá! Montei um carrinho no catálogo da D3D.\n'+
+              'Nome: '+nome+'\nE-mail: '+email+'\n\n'+linhas.join('\n')+
+              '\n\nPode me passar um orçamento?';
       if(WA) window.open('https://wa.me/'+WA+'?text='+encodeURIComponent(msg),'_blank','noopener');
       else location.href='mailto:d3dinovacao@gmail.com?subject='+encodeURIComponent('Pedido catálogo D3D')+
                          '&body='+encodeURIComponent(msg);
